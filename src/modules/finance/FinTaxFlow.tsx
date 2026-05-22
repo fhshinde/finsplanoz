@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { propertyAnalysis, propertyTimeSeries, type PropertyInputs } from '../../core/finance';
 import { Surface, Slider, NumInput, SaveButton, fmtAud, fmtCompact, cn } from '../../components/ui';
 
@@ -45,24 +45,10 @@ export default function FinTaxFlow() {
   // Zero price = no property transaction. Switches the model back to renting throughout.
   const hasProperty = p.price > 0;
 
-  // Net household income — derived from the savings + spend plan, not embedded.
-  // Year 0 (renting): income − rent − lifestyle = your annual savings, by construction.
-  const netHouseholdIncome = monthlySavings * 12 + (5_000 + 13_000) * 12;
-
-  // Year-by-year series
+  // Year-by-year series — just property equity over the hold period.
   const series = useMemo(() => {
-    return propertyTimeSeries({
-      inputs: p,
-      startPortfolioAud,
-      insuranceAud: insuranceStartAud,
-      netHouseholdIncome,
-      annualLifestyle: 13_000 * 12,
-      portfolioReturn: portReturn / 100,
-      rentMonthly: 5_000,
-      active: hasProperty,
-      inflation: inflation / 100,
-    });
-  }, [p, startPortfolioAud, insuranceStartAud, portReturn, inflation, hasProperty, netHouseholdIncome]);
+    return propertyTimeSeries({ inputs: p, active: hasProperty });
+  }, [p, hasProperty]);
 
   // Property purchase costs reduce starting liquid (deposit + stamp duty + legal)
   const a = useMemo(() => propertyAnalysis(p), [p]);
@@ -152,13 +138,6 @@ export default function FinTaxFlow() {
     value: Math.round(propertyValueAt(i)),   // market value (main line)
     equity: r.property,                       // equity (secondary line)
   }));
-  const cashflowData = series.rows.map(r => ({
-    year: r.year,
-    income: r.NetIncome ?? 0,
-    housing: Math.abs(r.Housing ?? 0),
-    lifestyle: Math.abs(r.Lifestyle ?? 0),
-    savings: (r.NetIncome ?? 0) - Math.abs(r.Housing ?? 0) - Math.abs(r.Lifestyle ?? 0),
-  }));
 
   return (
     <div className="space-y-3">
@@ -212,7 +191,7 @@ export default function FinTaxFlow() {
           </div>
         </Surface>
 
-        {/* MIDDLE — 4 CHARTS in 2×2 grid */}
+        {/* MIDDLE — 3 charts: Liquid + Other on top, Property full-width on bottom */}
         <div className="lg:col-span-6 grid grid-cols-2 grid-rows-2 gap-2">
           <LiquidAssetChartCard
             data={portfolioData}
@@ -230,9 +209,7 @@ export default function FinTaxFlow() {
             data={propertyData}
             yearN={p.years}
             growthRate={p.growth}
-          />
-          <CashflowCard
-            data={cashflowData}
+            className="col-span-2"
           />
         </div>
 
@@ -381,10 +358,10 @@ function OtherAssetsChartCard({ data, yearN, growthRate, finalTotal }: { data: a
 }
 
 /* ───────── Property chart — market value + equity line ───────── */
-function PropertyChartCard({ data, yearN, growthRate }: { data: any[]; yearN: number; growthRate: number }) {
+function PropertyChartCard({ data, yearN, growthRate, className }: { data: any[]; yearN: number; growthRate: number; className?: string }) {
   const finalRow = data[data.length - 1];
   return (
-    <Surface className="p-3 flex flex-col min-h-0">
+    <Surface className={cn("p-3 flex flex-col min-h-0", className)}>
       <div className="flex items-baseline justify-between mb-2">
         <div>
           <h3 className="text-sm font-semibold text-ink-50">Property Growth</h3>
@@ -411,32 +388,6 @@ function PropertyChartCard({ data, yearN, growthRate }: { data: any[]; yearN: nu
             <Area type="monotone" dataKey="value" name="Market value" stroke="#a78bfa" strokeWidth={2} fill="url(#g-prop-val)" />
             <Area type="monotone" dataKey="equity" name="Equity" stroke="#c4b5fd" strokeWidth={1.5} fill="none" strokeDasharray="4 3" />
           </AreaChart>
-        </ResponsiveContainer>
-      </div>
-    </Surface>
-  );
-}
-
-/* ───────── Cashflow stacked bar ───────── */
-function CashflowCard({ data }: { data: any[] }) {
-  return (
-    <Surface className="p-3 flex flex-col min-h-0">
-      <div className="mb-2">
-        <h3 className="text-sm font-semibold text-ink-50">Annual cashflow</h3>
-        <div className="text-[10px] text-ink-400">Net income − housing − lifestyle, all inflated</div>
-      </div>
-      <div className="flex-1 min-h-[80px]">
-        <ResponsiveContainer>
-          <BarChart data={data} margin={{ top: 4, right: 4, left: -10, bottom: 0 }} stackOffset="sign">
-            <CartesianGrid stroke="rgba(255,255,255,0.04)" vertical={false} />
-            <XAxis dataKey="year" stroke="#6b7691" fontSize={9} tickLine={false} axisLine={false} />
-            <YAxis stroke="#6b7691" fontSize={9} tickFormatter={(v) => '$' + fmtCompact(v)} tickLine={false} axisLine={false} />
-            <Tooltip contentStyle={{ background: '#1c2230', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, fontSize: 11 }} formatter={(v: any, n: any) => [fmtAud(Math.abs(Number(v)), true), n]} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
-            <ReferenceLine y={0} stroke="rgba(255,255,255,0.15)" />
-            <Bar dataKey="housing" name="Housing" stackId="out" fill="#7c6fc4" />
-            <Bar dataKey="lifestyle" name="Lifestyle" stackId="out" fill="#7dd3fc" />
-            <Bar dataKey="income" name="Net income" stackId="in" fill="#88b59c" radius={[4, 4, 0, 0]} />
-          </BarChart>
         </ResponsiveContainer>
       </div>
     </Surface>

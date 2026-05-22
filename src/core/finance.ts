@@ -19,70 +19,47 @@ const NSW_DUTY_BANDS: Array<{ upto: number; base: number; marginal: number; over
   { upto: Infinity,  base: 182_389, marginal: 0.07,   over: 3_636_000 },
 ];
 
-export function nswStampDuty(price: number) {
+function nswStampDuty(price: number) {
   const band = NSW_DUTY_BANDS.find(b => price <= b.upto)!;
   return band.base + (price - band.over) * band.marginal;
 }
 
-/* ───────── Mortgage (FIXED) — monthly compounding, 30-year term ───────── */
-export function mortgageMonthly(loan: number, annualRate: number, years = 30) {
+/* ───────── Mortgage payment — monthly compounding, 30-year term ───────── */
+function mortgageMonthly(loan: number, annualRate: number, years = 30) {
   const r = annualRate / 100 / 12;
   const n = years * 12;
   if (r === 0) return loan / n;
   return loan * (r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
 }
 
-export function mortgageAmortise(loan: number, annualRate: number, years = 30) {
-  const monthly = mortgageMonthly(loan, annualRate, years);
-  const totalPaid = monthly * years * 12;
-  return { monthly, annual: monthly * 12, totalPaid, totalInterest: totalPaid - loan };
+/* ───────── Property scenario — upfront cost and loan principal ─────────
+   Price = 0 means no transaction (no $15K legal, no deposit, no duty). */
+export function propertyAnalysis(p: PropertyInputs) {
+  if (p.price <= 0) return { loan: 0, upfront: 0 };
+  const deposit = p.price * (p.depositPct / 100);
+  const loan = p.price - deposit;
+  const upfront = deposit + nswStampDuty(p.price) + 15_000; // legal
+  return { loan, upfront };
 }
 
-/* ───────── Property year-by-year time series ─────────
-   Returns one row per year with the values the Tax tab's charts actually consume:
-   Housing/Lifestyle (cashflow bars), NetIncome (cashflow bar), property (equity line). */
-export function propertyTimeSeries(opts: {
-  inputs: PropertyInputs;
-  startPortfolioAud: number;
-  insuranceAud: number;
-  netHouseholdIncome: number;
-  annualLifestyle: number;
-  portfolioReturn?: number;
-  rentMonthly?: number;
-  active?: boolean;
-  inflation?: number;          // annual inflation, e.g. 0.03
-}) {
-  const { inputs: p, netHouseholdIncome, annualLifestyle } = opts;
-  const inflation = opts.inflation ?? 0.03;
+/* ───────── Property equity year-by-year ─────────
+   Returns the year axis and the property equity each year (market value
+   minus remaining loan balance). With active=false equity is 0 throughout. */
+export function propertyTimeSeries(opts: { inputs: PropertyInputs; active?: boolean }) {
+  const { inputs: p } = opts;
   const active = opts.active ?? true;
-  const rentAnnual = (opts.rentMonthly ?? 5_000) * 12;
-  const a = propertyAnalysis(p);
+  const { loan } = propertyAnalysis(p);
 
-  const m = mortgageMonthly(a.loan, p.rate, 30);
+  const m = mortgageMonthly(loan, p.rate, 30);
   const rMonth = p.rate / 100 / 12;
-  let remainingLoan = a.loan;
+  let remainingLoan = loan;
 
-  const rows: Array<{
-    year: number;
-    Housing: number;
-    Lifestyle: number;
-    NetIncome: number;
-    property: number;
-  }> = [];
+  const rows: Array<{ year: number; property: number }> = [];
 
   for (let y = 0; y <= p.years; y++) {
-    const inflFactor = Math.pow(1 + inflation, y);
-    const lifestyleYear = annualLifestyle * inflFactor;
-
-    // Year 0 = rent baseline. Year 1+ = mortgage (if active). Mortgage P+I is fixed; the rest inflates.
     const isOwning = active && y >= 1;
-    const housingYear = isOwning
-      ? a.annualMortgage + (a.bodyCorp + a.maintenance + a.insurance) * inflFactor - a.annualRentIn
-      : rentAnnual * inflFactor;
 
-    const netIncomeYear = netHouseholdIncome * inflFactor;
-
-    if (y > 0 && isOwning) {
+    if (isOwning) {
       for (let mi = 0; mi < 12; mi++) {
         const interest = remainingLoan * rMonth;
         const principal = m - interest;
@@ -95,62 +72,9 @@ export function propertyTimeSeries(opts: {
 
     rows.push({
       year: new Date().getFullYear() + y,
-      Housing: -Math.round(housingYear),
-      Lifestyle: -Math.round(lifestyleYear),
-      NetIncome: Math.round(netIncomeYear),
       property: Math.round(equity),
     });
   }
 
   return { rows };
 }
-
-/* ───────── Property simulator ───────── */
-export function propertyAnalysis(p: PropertyInputs) {
-  // Price = 0 means no transaction — no purchase, no carrying costs, no $15K legal.
-  if (p.price <= 0) {
-    return {
-      deposit: 0, loan: 0, stampDuty: 0, upfront: 0,
-      annualMortgage: 0, bodyCorp: 0, maintenance: 0, insurance: 0, annualRentIn: 0,
-      annualHolding: 0,
-      totalInterest: 0,
-      futureValue: 0, remainingLoan: 0, equity: 0,
-    };
-  }
-
-  const deposit = p.price * (p.depositPct / 100);
-  const loan = p.price - deposit;
-  const stampDuty = nswStampDuty(p.price);
-  const upfront = deposit + stampDuty + 15_000; // legal
-  const { annual: annualMortgage, totalInterest } = mortgageAmortise(loan, p.rate, 30);
-
-  const bodyCorp = 3_000;
-  const maintenance = p.price * 0.005;
-  const insurance = 2_500;
-  const annualRentIn = p.price * (p.yieldPct / 100);
-  const annualHolding = annualMortgage + bodyCorp + maintenance + insurance - annualRentIn;
-
-  // Property exit
-  const futureValue = p.price * Math.pow(1 + p.growth / 100, p.years);
-
-  // Remaining loan after years (amortising)
-  const r = p.rate / 100 / 12;
-  const months = p.years * 12;
-  const m = mortgageMonthly(loan, p.rate, 30);
-  let remaining = loan;
-  for (let i = 0; i < months; i++) {
-    const interest = remaining * r;
-    const principal = m - interest;
-    remaining = Math.max(0, remaining - principal);
-  }
-  const equity = futureValue - remaining;
-
-  return {
-    deposit, loan, stampDuty, upfront,
-    annualMortgage, bodyCorp, maintenance, insurance, annualRentIn,
-    annualHolding,
-    totalInterest,
-    futureValue, remainingLoan: remaining, equity,
-  };
-}
-
