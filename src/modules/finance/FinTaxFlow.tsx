@@ -6,10 +6,7 @@ import { Surface, Slider, NumInput, SaveButton, fmtAud, fmtCompact, cn } from '.
 /* ───────── Couple's profile constants (inlined — Tax tab is the only consumer) ───────── */
 const MARGINAL_RATE = 0.47;            // top AU marginal incl. Medicare
 const CGT_DISCOUNT = 0.5;              // 50% discount on assets held >12 months
-const LIFESTYLE_MONTHLY_AUD = 13_000;  // discretionary AUD/mo, excludes rent
-const RENT_MONTHLY_AUD = 5_000;
-const HER_INCOME = 250_000;
-const HIM_INCOME = 250_000;
+
 const FIRE_MULTIPLIER = 25;            // years of expenses for FIRE target
 
 /* ───────── Couple's household tax position — computed once at module load ───────── */
