@@ -7,16 +7,9 @@ import { Surface, Slider, NumInput, SaveButton, fmtAud, fmtCompact, cn } from '.
 const MARGINAL_RATE = 0.47;            // top AU marginal incl. Medicare
 const CGT_DISCOUNT = 0.5;              // 50% discount on assets held >12 months
 
-const FIRE_MULTIPLIER = 25;            // years of expenses for FIRE target
-
-/* ───────── Couple's household tax position — computed once at module load.
-   Two earners on $250K each, family PHI on, AU resident. ───────── */
-const MLS_CTX = { hasPHI: true, mlsHouseholdIncome: 500_000, isFamily: true };
-const _taxEach = auTax(250_000, MLS_CTX);
-const NET_HOUSEHOLD_INCOME = _taxEach.net * 2;
-const TOTAL_TAX_PAID = _taxEach.total * 2;
-// Rent $5K/mo + lifestyle $13K/mo, annualised — the FIRE-target baseline.
-const ANNUAL_EXPENSES_TODAY = (5_000 + 13_000) * 12;
+// Household net income — two earners on $250K each, family PHI on, AU 2025-26.
+// Drives the green "Net income" bars in the Cashflow chart.
+const NET_HOUSEHOLD_INCOME = auTax(250_000, { hasPHI: true, mlsHouseholdIncome: 500_000, isFamily: true }).net * 2;
 
 /* ───────── Tiny localStorage-backed state helper ───────── */
 function usePersistedState<T>(key: string, initial: T): [T, (v: T) => void] {
@@ -48,7 +41,7 @@ export default function FinTaxFlow() {
   const [otherAssetGrowth, setOtherAssetGrowth] = useState(5);
   const [monthlySavings, setMonthlySavings] = useState(3_000);
   const [insuranceOverride, setInsuranceOverride] = useState<number | null>(300_000);
-  const [grossFireTargetOverride, setGrossFireTargetOverride] = useState<number | null>(2_000_000);
+  const [grossFireTarget, setGrossFireTarget] = useState<number>(2_000_000);
 
   const insuranceStartAud = insuranceOverride ?? 0;
   const startNw = startPortfolioAud + insuranceStartAud;
@@ -63,7 +56,6 @@ export default function FinTaxFlow() {
       startPortfolioAud,
       insuranceAud: insuranceStartAud,
       netHouseholdIncome: NET_HOUSEHOLD_INCOME,
-      totalTaxPaid: TOTAL_TAX_PAID,
       annualLifestyle: 13_000 * 12,
       portfolioReturn: portReturn / 100,
       rentMonthly: 5_000,
@@ -118,23 +110,8 @@ export default function FinTaxFlow() {
     : annualSavingsContrib * ((Math.pow(1 + otherGrowthRate, p.years) - 1) / otherGrowthRate);
   const finalOtherAsset = otherStartingAtN + cashFromSavings;
 
-  // FIRE TARGET — standard FIRE formula: future expenses × multiplier (inflated to year you reach FIRE)
-  // Iteratively find the FIRE year where pure-compounded NW catches the inflating target.
-  const fireTargetToday = ANNUAL_EXPENSES_TODAY * FIRE_MULTIPLIER;
-  const fireTargetNominal = (() => {
-    let bal = startNw;
-    const r = portReturn / 100;
-    const i = inflation / 100;
-    for (let y = 0; y < 60; y++) {
-      const target = fireTargetToday * Math.pow(1 + i, y);
-      if (bal >= target) return target;
-      bal = bal * (1 + r);
-    }
-    return fireTargetToday * Math.pow(1 + i, 60);
-  })();
-  // "Gross FIRE target" = user's spending target (defaults to lifestyle-derived nominal)
-  const grossFireTarget = grossFireTargetOverride ?? fireTargetNominal;
-  // CGT buffer = tax owed on the capital gain from startLiquid → grossFireTarget
+  // "Gross FIRE target" = user's spending target (set via the input, defaults to $2M).
+  // CGT buffer = tax owed on the capital gain from startLiquid → grossFireTarget.
   const fireCgtBuffer = Math.max(0, (grossFireTarget - startPortfolioAud)) * CGT_DISCOUNT * MARGINAL_RATE;
   // FIRE TARGET REQUIRED = the total gross liquid you need (target + CGT buffer)
   const fireTargetRequired = grossFireTarget + fireCgtBuffer;
@@ -219,7 +196,7 @@ export default function FinTaxFlow() {
               </div>
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[11px] text-ink-300">Gross FIRE target</span>
-                <NumInput value={Math.round(grossFireTarget)} onChange={(n) => setGrossFireTargetOverride(n)} prefix="$" className="w-32" />
+                <NumInput value={Math.round(grossFireTarget)} onChange={(n) => setGrossFireTarget(n)} prefix="$" className="w-32" />
               </div>
             </div>
 

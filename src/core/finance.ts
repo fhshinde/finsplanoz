@@ -39,23 +39,20 @@ export function mortgageAmortise(loan: number, annualRate: number, years = 30) {
 }
 
 /* ───────── Property year-by-year time series ─────────
-   Bars: each YEAR's outflows, growing with inflation (annual flows, not cumulative).
-   Saved: cumulative running total (so it visually accumulates positive).
-   Lines: portfolio (compounds + savings reinvested) and property equity. */
+   Returns one row per year with the values the Tax tab's charts actually consume:
+   Housing/Lifestyle (cashflow bars), NetIncome (cashflow bar), property (equity line). */
 export function propertyTimeSeries(opts: {
   inputs: PropertyInputs;
   startPortfolioAud: number;
   insuranceAud: number;
   netHouseholdIncome: number;
-  totalTaxPaid: number;
   annualLifestyle: number;
   portfolioReturn?: number;
   rentMonthly?: number;
   active?: boolean;
   inflation?: number;          // annual inflation, e.g. 0.03
 }) {
-  const { inputs: p, startPortfolioAud, insuranceAud, netHouseholdIncome, totalTaxPaid, annualLifestyle } = opts;
-  const portReturn = opts.portfolioReturn ?? 0.07;
+  const { inputs: p, netHouseholdIncome, annualLifestyle } = opts;
   const inflation = opts.inflation ?? 0.03;
   const active = opts.active ?? true;
   const rentAnnual = (opts.rentMonthly ?? 5_000) * 12;
@@ -65,25 +62,16 @@ export function propertyTimeSeries(opts: {
   const rMonth = p.rate / 100 / 12;
   let remainingLoan = a.loan;
 
-  // Portfolio starts intact at year 0 (still renting). Purchase happens between y=0 and y=1.
-  let portfolio = startPortfolioAud;
-  let cumSaved = 0;
-
   const rows: Array<{
     year: number;
-    Tax: number;
     Housing: number;
     Lifestyle: number;
     NetIncome: number;
-    Saved: number;
-    portfolio: number;
     property: number;
-    netWorth: number;
   }> = [];
 
   for (let y = 0; y <= p.years; y++) {
     const inflFactor = Math.pow(1 + inflation, y);
-    const taxYear = totalTaxPaid * inflFactor;
     const lifestyleYear = annualLifestyle * inflFactor;
 
     // Year 0 = rent baseline. Year 1+ = mortgage (if active). Mortgage P+I is fixed; the rest inflates.
@@ -93,22 +81,13 @@ export function propertyTimeSeries(opts: {
       : rentAnnual * inflFactor;
 
     const netIncomeYear = netHouseholdIncome * inflFactor;
-    const savedThisYear = netIncomeYear - housingYear - lifestyleYear;
 
-    if (y === 1 && active) {
-      // Year-1 transition: deduct upfront from portfolio when purchase commits
-      portfolio = Math.max(0, portfolio - a.upfront);
-    }
-    if (y > 0) {
-      if (isOwning) {
-        for (let mi = 0; mi < 12; mi++) {
-          const interest = remainingLoan * rMonth;
-          const principal = m - interest;
-          remainingLoan = Math.max(0, remainingLoan - principal);
-        }
+    if (y > 0 && isOwning) {
+      for (let mi = 0; mi < 12; mi++) {
+        const interest = remainingLoan * rMonth;
+        const principal = m - interest;
+        remainingLoan = Math.max(0, remainingLoan - principal);
       }
-      portfolio = portfolio * (1 + portReturn) + Math.max(0, savedThisYear);
-      cumSaved += Math.max(0, savedThisYear);
     }
 
     const propertyVal = isOwning ? p.price * Math.pow(1 + p.growth / 100, y) : 0;
@@ -116,14 +95,10 @@ export function propertyTimeSeries(opts: {
 
     rows.push({
       year: new Date().getFullYear() + y,
-      Tax: -Math.round(taxYear),
       Housing: -Math.round(housingYear),
       Lifestyle: -Math.round(lifestyleYear),
       NetIncome: Math.round(netIncomeYear),
-      Saved: Math.round(cumSaved),
-      portfolio: Math.round(portfolio),
       property: Math.round(equity),
-      netWorth: Math.round(portfolio + insuranceAud + equity),
     });
   }
 
