@@ -1,15 +1,11 @@
 import { useMemo, useState } from 'react';
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
-import { propertyAnalysis, propertyTimeSeries, auTax, type PropertyInputs } from '../../core/finance';
+import { propertyAnalysis, propertyTimeSeries, type PropertyInputs } from '../../core/finance';
 import { Surface, Slider, NumInput, SaveButton, fmtAud, fmtCompact, cn } from '../../components/ui';
 
 /* ───────── Couple's profile constants (inlined — Tax tab is the only consumer) ───────── */
 const MARGINAL_RATE = 0.47;            // top AU marginal incl. Medicare
 const CGT_DISCOUNT = 0.5;              // 50% discount on assets held >12 months
-
-// Household net income — two earners on $250K each, family PHI on, AU 2025-26.
-// Drives the green "Net income" bars in the Cashflow chart.
-const NET_HOUSEHOLD_INCOME = auTax(250_000, { hasPHI: true, mlsHouseholdIncome: 500_000, isFamily: true }).net * 2;
 
 /* ───────── Tiny localStorage-backed state helper ───────── */
 function usePersistedState<T>(key: string, initial: T): [T, (v: T) => void] {
@@ -49,20 +45,24 @@ export default function FinTaxFlow() {
   // Zero price = no property transaction. Switches the model back to renting throughout.
   const hasProperty = p.price > 0;
 
+  // Net household income — derived from the savings + spend plan, not embedded.
+  // Year 0 (renting): income − rent − lifestyle = your annual savings, by construction.
+  const netHouseholdIncome = monthlySavings * 12 + (5_000 + 13_000) * 12;
+
   // Year-by-year series
   const series = useMemo(() => {
     return propertyTimeSeries({
       inputs: p,
       startPortfolioAud,
       insuranceAud: insuranceStartAud,
-      netHouseholdIncome: NET_HOUSEHOLD_INCOME,
+      netHouseholdIncome,
       annualLifestyle: 13_000 * 12,
       portfolioReturn: portReturn / 100,
       rentMonthly: 5_000,
       active: hasProperty,
       inflation: inflation / 100,
     });
-  }, [p, startPortfolioAud, insuranceStartAud, portReturn, inflation, hasProperty]);
+  }, [p, startPortfolioAud, insuranceStartAud, portReturn, inflation, hasProperty, netHouseholdIncome]);
 
   // Property purchase costs reduce starting liquid (deposit + stamp duty + legal)
   const a = useMemo(() => propertyAnalysis(p), [p]);
