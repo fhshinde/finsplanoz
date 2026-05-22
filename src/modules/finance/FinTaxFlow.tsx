@@ -2,12 +2,13 @@ import { useMemo, useState, useEffect } from 'react';
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { useStore } from '../../core/store';
 import { propertyAnalysis, propertyTimeSeries, portfolioAud, insuranceAud } from '../../core/finance';
-import { COUPLE } from '../../core/constants';
 import { useDerived, fireYearInflated } from '../../core/useDerived';
 import { Surface, Slider, NumInput, SaveButton, fmtAud, fmtCompact, cn } from '../../components/ui';
 
 const MARGINAL_RATE = 0.47;      // top AU marginal incl. Medicare for the couple
 const CGT_DISCOUNT = 0.5;        // 50% discount on assets held >12 months
+const LIFESTYLE_MONTHLY_AUD = 13_000;  // discretionary AUD/mo, excludes rent
+const RENT_MONTHLY_AUD = 5_000;
 
 export default function FinTaxFlow() {
   const {
@@ -42,9 +43,9 @@ export default function FinTaxFlow() {
       insuranceAud: insuranceAud(fx),
       netHouseholdIncome: d.netHouseholdIncome,
       totalTaxPaid: d.totalTaxPaid,
-      annualLifestyle: COUPLE.lifestyleMonthlyAUD * 12,
+      annualLifestyle: LIFESTYLE_MONTHLY_AUD * 12,
       portfolioReturn: portReturn / 100,
-      rentMonthly: COUPLE.rentMonthlyAUD,
+      rentMonthly: RENT_MONTHLY_AUD,
       active: true,    // always model as if property purchased — this is a scenario tab
       inflation: inflation / 100,
     });

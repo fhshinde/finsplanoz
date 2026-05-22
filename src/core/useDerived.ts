@@ -1,29 +1,18 @@
 // Centralised derivation of the household financial picture.
-// Both Overview and Projection use this so numbers ALWAYS line up.
+// Returns only what the Tax tab actually consumes.
 import { useMemo } from 'react';
 import { useStore } from './store';
-import {
-  portfolioUsd, portfolioAud, insuranceAud, netWorthAud,
-  propertyEquityAud, auTax,
-} from './finance';
-import { COUPLE } from './constants';
+import { netWorthAud, auTax } from './finance';
+
+// Lifestyle (discretionary AUD/mo, excludes rent) and rent — formerly COUPLE.*
+const LIFESTYLE_MONTHLY_AUD = 13_000;
+const RENT_MONTHLY_AUD = 5_000;
 
 export function useDerived() {
-  const { holdings, cashUsd, fx, spending, propertyOwned, taxInputs, hasPHI } = useStore();
+  const { holdings, cashUsd, fx, taxInputs, hasPHI } = useStore();
 
   return useMemo(() => {
-    // FX-converted values
-    const pUsd = portfolioUsd(holdings, cashUsd);
-    const pAud = portfolioAud(holdings, cashUsd, fx);
-    const ins = insuranceAud(fx);
-    const propEquity = propertyEquityAud(propertyOwned);
-    const nw = netWorthAud(holdings, cashUsd, fx, propertyOwned);
-
-    // Recent SGD spend (kept for reference in the Spending charts only)
-    const years = Object.keys(spending).sort();
-    const latest = spending[years[years.length - 1]] ?? [];
-    const nz = latest.filter(x => x > 0);
-    const avgMonthlySgd = nz.length ? nz.reduce((a, b) => a + b, 0) / nz.length : COUPLE.monthlySpendTargetSGD;
+    const nw = netWorthAud(holdings, cashUsd, fx);
 
     // Tax — uses Tax & Super tab inputs from store (single source of truth)
     const grossHousehold = taxInputs.herIncome + taxInputs.himIncome;
@@ -34,34 +23,12 @@ export function useDerived() {
     const taxHim = auTax(taxableHim, mlsCtx);
     const netHouseholdIncome = taxHer.net + taxHim.net;
     const totalTaxPaid = taxHer.total + taxHim.total;
-    const effectiveTaxRate = grossHousehold > 0 ? totalTaxPaid / grossHousehold : 0;
-    const superSacrifice = taxInputs.herSacrifice + taxInputs.himSacrifice;
-    const superNetContributed = superSacrifice * 0.85; // 15% super contributions tax
 
-    // Housing
-    const annualHousing = propertyOwned.active
-      ? (propertyOwned.monthlyCost - propertyOwned.rentalIncome / 12) * 12
-      : COUPLE.rentMonthlyAUD * 12;
+    // Single source of truth for annual expenses (rent baseline + lifestyle)
+    const annualExpensesToday = (RENT_MONTHLY_AUD + LIFESTYLE_MONTHLY_AUD) * 12;
 
-    // Lifestyle — fixed AUD figure (matches user's actual non-housing spend)
-    const annualLifestyle = COUPLE.lifestyleMonthlyAUD * 12;
-    const totalAnnualSpend = annualLifestyle + COUPLE.rentMonthlyAUD * 12;
-
-    // The single source of truth for annual expenses
-    const annualExpensesToday = annualHousing + annualLifestyle;
-    const annualSavings = netHouseholdIncome - annualExpensesToday;
-
-    return {
-      pUsd, pAud, ins, propEquity, nw,
-      avgMonthlySgd,
-      grossHousehold,
-      taxHer, taxHim, netHouseholdIncome, totalTaxPaid, effectiveTaxRate,
-      superSacrifice, superNetContributed,
-      annualHousing, annualLifestyle, annualExpensesToday, annualSavings,
-      totalAnnualSpend,
-      fx, propertyOwned,
-    };
-  }, [holdings, cashUsd, fx, spending, propertyOwned, taxInputs, hasPHI]);
+    return { nw, netHouseholdIncome, totalTaxPaid, annualExpensesToday };
+  }, [holdings, cashUsd, fx, taxInputs, hasPHI]);
 }
 
 // Compute FIRE year given a target today + assumptions.
