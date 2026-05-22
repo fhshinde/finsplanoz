@@ -146,43 +146,47 @@ export default function FinTaxFlow() {
         <SaveButton />
       </div>
 
-      <div className="grid lg:grid-cols-12 gap-3">
-        {/* LEFT — INPUTS, distribute to fill height */}
-        <Surface className="lg:col-span-3 p-3 flex flex-col">
-          <h2 className="text-sm font-semibold text-ink-50 mb-2">Scenario</h2>
+      {/* Stacked layout: inputs → charts → summary, each full page width */}
+      <div className="space-y-3">
+        {/* INPUTS */}
+        <Surface className="p-3">
+          <h2 className="text-sm font-semibold text-ink-50 mb-3">Scenario</h2>
 
-          <div className="flex-1 flex flex-col justify-between gap-1.5">
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[11px] text-ink-300">Liquid asset</span>
-                <NumInput value={Math.round(startPortfolioAud)} onChange={(n) => setLiquidOverride(n)} prefix="$" className="w-32" />
-              </div>
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[11px] text-ink-300">Property price</span>
-                <NumInput value={p.price} onChange={(n) => setP({ price: n })} prefix="$" className="w-32" />
-              </div>
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[11px] text-ink-300">Insurance</span>
-                <NumInput value={Math.round(insuranceStartAud)} onChange={(n) => setInsuranceOverride(n)} prefix="$" className="w-32" />
-              </div>
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[11px] text-ink-300">Other asset</span>
-                <NumInput value={otherAssetValue} onChange={setOtherAssetValue} prefix="$" className="w-32" />
-              </div>
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[11px] text-ink-300">Monthly savings</span>
-                <NumInput value={monthlySavings} onChange={setMonthlySavings} prefix="$" className="w-32" />
-              </div>
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[11px] text-ink-300">Gross FIRE target</span>
-                <NumInput value={Math.round(grossFireTarget)} onChange={(n) => setGrossFireTarget(n)} prefix="$" className="w-32" />
-              </div>
+          {/* 6 number inputs — flow into 2/3 columns at wider widths */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-1.5 mb-3">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] text-ink-300">Liquid asset</span>
+              <NumInput value={Math.round(startPortfolioAud)} onChange={(n) => setLiquidOverride(n)} prefix="$" className="w-32" />
             </div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] text-ink-300">Property price</span>
+              <NumInput value={p.price} onChange={(n) => setP({ price: n })} prefix="$" className="w-32" />
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] text-ink-300">Insurance</span>
+              <NumInput value={Math.round(insuranceStartAud)} onChange={(n) => setInsuranceOverride(n)} prefix="$" className="w-32" />
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] text-ink-300">Other asset</span>
+              <NumInput value={otherAssetValue} onChange={setOtherAssetValue} prefix="$" className="w-32" />
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] text-ink-300">Monthly savings</span>
+              <NumInput value={monthlySavings} onChange={setMonthlySavings} prefix="$" className="w-32" />
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] text-ink-300">Gross FIRE target</span>
+              <NumInput value={Math.round(grossFireTarget)} onChange={(n) => setGrossFireTarget(n)} prefix="$" className="w-32" />
+            </div>
+          </div>
 
+          <div className="pt-3 border-t border-white/[0.06]">
             <Slider label="Hold period (years)" value={p.years} min={5} max={30} step={1} onChange={(n) => setP({ years: n })} fmt={v => v + ' yrs'} />
+          </div>
 
-            <div className="pt-2 border-t border-white/[0.06] space-y-1">
-              <div className="text-[10px] uppercase tracking-[0.16em] text-ink-400 font-semibold">Growth assumptions</div>
+          <div className="pt-2 border-t border-white/[0.06]">
+            <div className="text-[10px] uppercase tracking-[0.16em] text-ink-400 font-semibold mb-1">Growth assumptions</div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-6">
               <Slider label="Investment Return" value={portReturn} min={7} max={25} step={1} onChange={setExpectedReturn} fmt={v => v.toFixed(0) + '%'} />
               <Slider label="Property Growth" value={p.growth} min={3} max={20} step={1} onChange={(n) => setP({ growth: n })} fmt={v => v.toFixed(0) + '%'} />
               <Slider label="Other Asset Growth" value={otherAssetGrowth} min={0} max={20} step={1} onChange={setOtherAssetGrowth} fmt={v => v.toFixed(0) + '%'} />
@@ -191,8 +195,8 @@ export default function FinTaxFlow() {
           </div>
         </Surface>
 
-        {/* MIDDLE — 3 charts: Liquid + Other on top, Property full-width on bottom */}
-        <div className="lg:col-span-6 grid grid-cols-2 grid-rows-2 gap-2">
+        {/* CHARTS — stacked vertically, each full page width */}
+        <div className="space-y-2">
           <LiquidAssetChartCard
             data={portfolioData}
             yearN={p.years}
@@ -209,17 +213,18 @@ export default function FinTaxFlow() {
             data={propertyData}
             yearN={p.years}
             growthRate={p.growth}
-            className="col-span-2"
           />
         </div>
 
-        {/* RIGHT — SUMMARY AT YEAR N */}
-        <Surface tone="hero" className="lg:col-span-3 p-4 relative overflow-hidden flex flex-col">
+        {/* SUMMARY AT YEAR N */}
+        <Surface tone="hero" className="p-4 relative overflow-hidden">
           <div className="absolute -top-12 -right-12 w-44 h-44 rounded-full bg-brand/[0.06] blur-3xl pointer-events-none" />
-          <div className="relative flex flex-col gap-3">
-            <div>
+          <div className="relative">
+            <div className="mb-3">
               <div className="text-[10px] uppercase tracking-[0.16em] text-brand font-semibold">Net position at year {p.years}</div>
             </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 
             {/* Liquid net of CGT and property purchase costs */}
             <div className="pt-3 border-t border-white/[0.06]">
@@ -262,9 +267,10 @@ export default function FinTaxFlow() {
                 <div className="flex justify-between"><span>CGT buffer needed</span><span className="num text-ink-300">{fmtAud(fireCgtBuffer, true)}</span></div>
               </div>
             </div>
+            </div>
 
-            {/* Total NW + progress */}
-            <div className="mt-auto pt-3 border-t border-white/[0.08]">
+            {/* Total NW + progress — full width below the 4-card grid */}
+            <div className="mt-4 pt-3 border-t border-white/[0.08]">
               <div className="flex items-baseline justify-between">
                 <div className="text-[10px] uppercase tracking-wider text-ink-400 font-semibold">Total net worth</div>
                 <span className={cn('text-[10px] font-semibold num', fireReached ? 'text-gain' : 'text-ink-300')}>
@@ -272,7 +278,7 @@ export default function FinTaxFlow() {
                 </span>
               </div>
               <div className="num text-2xl text-brand font-semibold mt-0.5 leading-none">{fmtAud(totalNetWorth, true)}</div>
-              <div className="text-[10px] text-ink-500 mt-1 leading-relaxed">
+              <div className="text-[10px] text-ink-500 mt-1 leading-relaxed grid grid-cols-1 sm:grid-cols-3 gap-x-6">
                 <div className="flex justify-between"><span>Liquid (net)</span><span className="num text-ink-300">{fmtAud(portfolioAfterCgt, true)}</span></div>
                 <div className="flex justify-between"><span>Property (equity)</span><span className="num text-ink-300">{fmtAud(propertyAfterTax, true)}</span></div>
                 <div className="flex justify-between"><span>Other (incl. insurance)</span><span className="num text-ink-300">{fmtAud(finalOtherTotal, true)}</span></div>
@@ -290,7 +296,7 @@ export default function FinTaxFlow() {
 /* ───────── Liquid Asset chart ───────── */
 function LiquidAssetChartCard({ data, yearN, growthRate, finalLiquid }: { data: any[]; yearN: number; growthRate: number; finalLiquid: number }) {
   return (
-    <Surface className="p-3 flex flex-col min-h-0">
+    <Surface className="p-3 flex flex-col min-h-0 h-80">
       <div className="flex items-baseline justify-between mb-2">
         <div>
           <h3 className="text-sm font-semibold text-ink-50">Liquid Asset</h3>
@@ -325,7 +331,7 @@ function LiquidAssetChartCard({ data, yearN, growthRate, finalLiquid }: { data: 
 /* ───────── Other Assets chart — 3 lines: insurance, other lump, cash savings ───────── */
 function OtherAssetsChartCard({ data, yearN, growthRate, finalTotal }: { data: any[]; yearN: number; growthRate: number; finalTotal: number }) {
   return (
-    <Surface className="p-3 flex flex-col min-h-0">
+    <Surface className="p-3 flex flex-col min-h-0 h-80">
       <div className="flex items-baseline justify-between mb-2">
         <div>
           <h3 className="text-sm font-semibold text-ink-50">Other Assets</h3>
@@ -361,7 +367,7 @@ function OtherAssetsChartCard({ data, yearN, growthRate, finalTotal }: { data: a
 function PropertyChartCard({ data, yearN, growthRate, className }: { data: any[]; yearN: number; growthRate: number; className?: string }) {
   const finalRow = data[data.length - 1];
   return (
-    <Surface className={cn("p-3 flex flex-col min-h-0", className)}>
+    <Surface className={cn("p-3 flex flex-col min-h-0 h-80", className)}>
       <div className="flex items-baseline justify-between mb-2">
         <div>
           <h3 className="text-sm font-semibold text-ink-50">Property Growth</h3>
