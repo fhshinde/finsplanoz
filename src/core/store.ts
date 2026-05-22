@@ -52,7 +52,7 @@ type State = {
 };
 
 const defaultProperty: PropertyInputs = {
-  price: 1_500_000, depositPct: 20, rate: 6.2, growth: 3, years: 10, yieldPct: 3.5,
+  price: 300_000, depositPct: 20, rate: 6.2, growth: 3, years: 10, yieldPct: 3.5,
 };
 const defaultPropertyOwned: PropertyOwned = {
   active: false, valuation: 0, loanBalance: 0, monthlyCost: 0, rentalIncome: 0,
@@ -75,7 +75,7 @@ export const useStore = create<State>((set) => ({
   habits: load('habits', HabitsZ, {}),
   weights: load('weights', WeightsZ, { her: [{ date: new Date().toISOString().slice(0,10), kg: 80 }], him: [{ date: new Date().toISOString().slice(0,10), kg: 98 }] }),
   superScenario: load('superScenario', z.enum(['default','moderate','max']), 'moderate'),
-  propertyInputs: load('propertyInputs', PropertyInputsZ, defaultProperty),
+  propertyInputs: load('propertyInputs_v2', PropertyInputsZ, defaultProperty),
   propertyOwned: load('propertyOwned', PropertyOwnedZ, defaultPropertyOwned),
   fireMultiplier: load('fireMultiplier', z.number().int().min(15).max(60), 25),
   fireInflation: load('fireInflation', z.number().min(0).max(15), 5),
@@ -131,7 +131,7 @@ export const useStore = create<State>((set) => ({
   setSuperScenario: (sc) => { save('superScenario', sc); set({ superScenario: sc }); },
   setPropertyInputs: (p) => set((s) => {
     const next = { ...s.propertyInputs, ...p };
-    save('propertyInputs', next); return { propertyInputs: next };
+    save('propertyInputs_v2', next); return { propertyInputs: next };
   }),
   setPropertyOwned: (p) => set((s) => {
     const next = { ...s.propertyOwned, ...p };

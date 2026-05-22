@@ -22,17 +22,17 @@ export default function FinTaxFlow() {
   const portReturn = expectedReturn;
   const inflation = fireInflation;
   const derivedPortfolioAud = portfolioAud(holdings, cashUsd, fx);
-  const [liquidOverride, setLiquidOverride] = useState<number | null>(null);
+  const [liquidOverride, setLiquidOverride] = useState<number | null>(300_000);
   // Re-sync override when underlying holdings change (unless user explicitly typed a value)
   useEffect(() => { if (liquidOverride === null) return; }, [derivedPortfolioAud]);
   const startPortfolioAud = liquidOverride ?? derivedPortfolioAud;
 
   // Other asset (e.g. super, vested equity, second property) — user-scenario only
-  const [otherAssetValue, setOtherAssetValue] = useState(0);
+  const [otherAssetValue, setOtherAssetValue] = useState(100_000);
   const [otherAssetGrowth, setOtherAssetGrowth] = useState(5);
-  const [monthlySavings, setMonthlySavings] = useState(0);
-  const [insuranceOverride, setInsuranceOverride] = useState<number | null>(null);
-  const [grossFireTargetOverride, setGrossFireTargetOverride] = useState<number | null>(null);
+  const [monthlySavings, setMonthlySavings] = useState(30_000);
+  const [insuranceOverride, setInsuranceOverride] = useState<number | null>(300_000);
+  const [grossFireTargetOverride, setGrossFireTargetOverride] = useState<number | null>(2_000_000);
 
   // Year-by-year series
   const series = useMemo(() => {
