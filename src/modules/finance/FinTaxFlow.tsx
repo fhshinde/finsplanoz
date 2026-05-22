@@ -30,11 +30,12 @@ function usePersistedState<T>(key: string, initial: T): [T, (v: T) => void] {
 }
 
 const defaultProperty: PropertyInputs = {
-  price: 300_000, depositPct: 20, rate: 6.2, growth: 3, years: 10, yieldPct: 3.5,
+  price: 0, depositPct: 20, rate: 6.2, growth: 3, years: 10, yieldPct: 3.5,
 };
 
 export default function FinTaxFlow() {
-  const [p, setPInput] = usePersistedState<PropertyInputs>('propertyInputs_v2', defaultProperty);
+  // v3 key — forces fresh defaults for visitors who saw the older property defaults
+  const [p, setPInput] = usePersistedState<PropertyInputs>('propertyInputs_v3', defaultProperty);
   const setP = (partial: Partial<PropertyInputs>) => setPInput({ ...p, ...partial });
   const [portReturn, setExpectedReturn] = usePersistedState<number>('expectedReturn', 10);
   const [inflation, setFireInflation] = usePersistedState<number>('fireInflation', 5);
@@ -43,14 +44,17 @@ export default function FinTaxFlow() {
   const startPortfolioAud = liquidOverride ?? 0;
 
   // Other asset (e.g. super, vested equity, second property) — user-scenario only
-  const [otherAssetValue, setOtherAssetValue] = useState(100_000);
+  const [otherAssetValue, setOtherAssetValue] = useState(0);
   const [otherAssetGrowth, setOtherAssetGrowth] = useState(5);
-  const [monthlySavings, setMonthlySavings] = useState(30_000);
+  const [monthlySavings, setMonthlySavings] = useState(3_000);
   const [insuranceOverride, setInsuranceOverride] = useState<number | null>(300_000);
   const [grossFireTargetOverride, setGrossFireTargetOverride] = useState<number | null>(2_000_000);
 
   const insuranceStartAud = insuranceOverride ?? 0;
   const startNw = startPortfolioAud + insuranceStartAud;
+
+  // Zero price = no property transaction. Switches the model back to renting throughout.
+  const hasProperty = p.price > 0;
 
   // Year-by-year series
   const series = useMemo(() => {
@@ -63,10 +67,10 @@ export default function FinTaxFlow() {
       annualLifestyle: LIFESTYLE_MONTHLY_AUD * 12,
       portfolioReturn: portReturn / 100,
       rentMonthly: RENT_MONTHLY_AUD,
-      active: true,    // always model as if property purchased — this is a scenario tab
+      active: hasProperty,
       inflation: inflation / 100,
     });
-  }, [p, startPortfolioAud, insuranceStartAud, portReturn, inflation]);
+  }, [p, startPortfolioAud, insuranceStartAud, portReturn, inflation, hasProperty]);
 
   // Property purchase costs reduce starting liquid (deposit + stamp duty + legal)
   const a = useMemo(() => propertyAnalysis(p), [p]);

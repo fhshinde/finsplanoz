@@ -132,6 +132,17 @@ export function propertyTimeSeries(opts: {
 
 /* ───────── Property simulator ───────── */
 export function propertyAnalysis(p: PropertyInputs) {
+  // Price = 0 means no transaction — no purchase, no carrying costs, no $15K legal.
+  if (p.price <= 0) {
+    return {
+      deposit: 0, loan: 0, stampDuty: 0, upfront: 0,
+      annualMortgage: 0, bodyCorp: 0, maintenance: 0, insurance: 0, annualRentIn: 0,
+      annualHolding: 0,
+      totalInterest: 0,
+      futureValue: 0, remainingLoan: 0, equity: 0,
+    };
+  }
+
   const deposit = p.price * (p.depositPct / 100);
   const loan = p.price - deposit;
   const stampDuty = nswStampDuty(p.price);
