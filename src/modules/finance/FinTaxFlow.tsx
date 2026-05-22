@@ -9,14 +9,14 @@ const CGT_DISCOUNT = 0.5;              // 50% discount on assets held >12 months
 
 const FIRE_MULTIPLIER = 25;            // years of expenses for FIRE target
 
-/* ───────── Couple's household tax position — computed once at module load ───────── */
-const GROSS_HOUSEHOLD = HER_INCOME + HIM_INCOME;
-const MLS_CTX = { hasPHI: true, mlsHouseholdIncome: GROSS_HOUSEHOLD, isFamily: true };
-const _taxHer = auTax(HER_INCOME, MLS_CTX);
-const _taxHim = auTax(HIM_INCOME, MLS_CTX);
-const NET_HOUSEHOLD_INCOME = _taxHer.net + _taxHim.net;
-const TOTAL_TAX_PAID = _taxHer.total + _taxHim.total;
-const ANNUAL_EXPENSES_TODAY = (RENT_MONTHLY_AUD + LIFESTYLE_MONTHLY_AUD) * 12;
+/* ───────── Couple's household tax position — computed once at module load.
+   Two earners on $250K each, family PHI on, AU resident. ───────── */
+const MLS_CTX = { hasPHI: true, mlsHouseholdIncome: 500_000, isFamily: true };
+const _taxEach = auTax(250_000, MLS_CTX);
+const NET_HOUSEHOLD_INCOME = _taxEach.net * 2;
+const TOTAL_TAX_PAID = _taxEach.total * 2;
+// Rent $5K/mo + lifestyle $13K/mo, annualised — the FIRE-target baseline.
+const ANNUAL_EXPENSES_TODAY = (5_000 + 13_000) * 12;
 
 /* ───────── Tiny localStorage-backed state helper ───────── */
 function usePersistedState<T>(key: string, initial: T): [T, (v: T) => void] {
@@ -64,9 +64,9 @@ export default function FinTaxFlow() {
       insuranceAud: insuranceStartAud,
       netHouseholdIncome: NET_HOUSEHOLD_INCOME,
       totalTaxPaid: TOTAL_TAX_PAID,
-      annualLifestyle: LIFESTYLE_MONTHLY_AUD * 12,
+      annualLifestyle: 13_000 * 12,
       portfolioReturn: portReturn / 100,
-      rentMonthly: RENT_MONTHLY_AUD,
+      rentMonthly: 5_000,
       active: hasProperty,
       inflation: inflation / 100,
     });
