@@ -112,7 +112,21 @@ export default function FinTaxFlow() {
   // Gross liquid required so that AFTER CGT you net the target (in nominal year-FIRE $)
   const fireTargetGrossDerived = Math.max(0, (fireTargetNominal - 0.235 * startPortfolioAud) / 0.765);
   const fireTargetGross = grossFireTargetOverride ?? fireTargetGrossDerived;
-  const fireCgtBuffer = fireTargetGross - fireTargetNominal;
+  // When user overrides gross, derive consistent spendable (nominal-after-CGT) and recompute the FIRE year against that gross
+  const displayedFireTargetNominal = grossFireTargetOverride !== null
+    ? Math.max(0, fireTargetGross * 0.765 + 0.235 * startPortfolioAud)
+    : fireTargetNominal;
+  const displayedFireYear = (() => {
+    if (grossFireTargetOverride === null) return fireCalc.fireYear;
+    let bal = d.nw;
+    const r = portReturn / 100;
+    for (let y = 0; y < 60; y++) {
+      if (bal >= grossFireTargetOverride) return new Date().getFullYear() + y;
+      bal = bal * (1 + r);
+    }
+    return null;
+  })();
+  const fireCgtBuffer = Math.max(0, fireTargetGross - displayedFireTargetNominal);
   const totalNetWorth = portfolioAfterCgt + propertyAfterTax + finalInsurance + finalOtherAsset;
   const fireProgress = (totalNetWorth / fireTargetGross) * 100;
   const fireReached = totalNetWorth >= fireTargetGross;
@@ -269,7 +283,7 @@ export default function FinTaxFlow() {
               <div className="text-[10px] uppercase tracking-wider text-ink-400 font-semibold">FIRE TARGET REQUIRED</div>
               <div className="num text-xl text-ink-50 font-semibold mt-0.5 leading-none">{fmtAud(fireTargetGross, true)}</div>
               <div className="text-[10px] text-ink-500 mt-1 leading-relaxed">
-                <div className="flex justify-between"><span>FIRE TARGET (year {fireCalc.fireYear ?? '—'})</span><span className="num text-ink-300">{fmtAud(fireTargetNominal, true)}</span></div>
+                <div className="flex justify-between"><span>FIRE TARGET (year {displayedFireYear ?? '—'})</span><span className="num text-ink-300">{fmtAud(displayedFireTargetNominal, true)}</span></div>
                 <div className="flex justify-between"><span>CGT buffer needed</span><span className="num text-ink-300">{fmtAud(fireCgtBuffer, true)}</span></div>
               </div>
             </div>
