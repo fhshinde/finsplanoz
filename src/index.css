@@ -1,0 +1,132 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=Marcellus&family=JetBrains+Mono:wght@400;500&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root { height: 100%; }
+
+body {
+  background: #0b0d11;
+  color: #dfe3ec;
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  margin: 0;
+  overscroll-behavior: none;
+  letter-spacing: -0.011em;
+  font-feature-settings: 'cv02','cv03','cv04','cv11','ss01','ss03';
+}
+
+/* App background — subtle warm radial */
+.app-bg {
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(196,168,117,0.04), transparent 60%),
+    radial-gradient(ellipse 60% 40% at 20% 100%, rgba(125,211,252,0.025), transparent 60%),
+    #0b0d11;
+}
+
+/* NUMBERS — clean sans with tabular figures + tight tracking (Bloomberg/Wealthfront style) */
+.num {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-variant-numeric: tabular-nums slashed-zero;
+  letter-spacing: -0.025em;
+  font-feature-settings: 'tnum','ss01';
+}
+
+/* Hero number — bigger, tighter, still sans */
+.num-hero {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-variant-numeric: tabular-nums slashed-zero;
+  letter-spacing: -0.045em;
+  font-weight: 600;
+  font-feature-settings: 'tnum','ss01';
+}
+
+/* Use serif ONLY for editorial section titles, never for numbers */
+.display-serif {
+  font-family: 'Fraunces', Georgia, serif;
+  letter-spacing: -0.025em;
+  font-feature-settings: 'ss01','ss02';
+}
+
+/* Premium card — subtle inner highlight + soft shadow */
+.card-premium {
+  background: linear-gradient(180deg, rgba(28,34,48,0.55) 0%, rgba(17,20,27,0.65) 100%);
+  border: 1px solid rgba(255,255,255,0.06);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.05) inset,
+    0 1px 2px rgba(0,0,0,0.4),
+    0 8px 24px -8px rgba(0,0,0,0.4);
+  transition: all 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.card-premium:hover {
+  border-color: rgba(255,255,255,0.10);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.07) inset,
+    0 2px 4px rgba(0,0,0,0.5),
+    0 16px 32px -12px rgba(196,168,117,0.10);
+}
+
+/* Hero card — gradient border */
+.card-hero {
+  position: relative;
+  background: linear-gradient(180deg, rgba(36,29,18,0.4) 0%, rgba(17,20,27,0.85) 100%);
+  border: 1px solid rgba(196,168,117,0.22);
+  box-shadow:
+    0 1px 0 rgba(232,199,159,0.08) inset,
+    0 2px 4px rgba(0,0,0,0.4),
+    0 24px 48px -16px rgba(196,168,117,0.15);
+}
+
+/* Sidebar */
+.sidebar-bg {
+  background: linear-gradient(180deg, rgba(28,34,48,0.4) 0%, rgba(17,20,27,0.6) 100%);
+}
+
+/* Glass top bar */
+.glass-top {
+  background: rgba(11,13,17,0.7);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+
+.scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+.scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+.scrollbar-thin::-webkit-scrollbar-thumb { background: rgba(58,68,88,0.4); border-radius: 3px; }
+.scrollbar-thin::-webkit-scrollbar-thumb:hover { background: rgba(58,68,88,0.7); }
+
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* Gradient gold text */
+.text-gradient-warm {
+  background: linear-gradient(135deg, #f5d9b0 0%, #c4a875 60%, #9a7f4d 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+
+*:focus-visible {
+  outline: 2px solid rgba(196,168,117,0.5);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Recharts: kill the focus outline on chart SVGs */
+.recharts-wrapper, .recharts-wrapper *, .recharts-surface, .recharts-surface * {
+  outline: none !important;
+}
+.recharts-wrapper:focus, .recharts-wrapper:focus-visible,
+.recharts-surface:focus, .recharts-surface:focus-visible {
+  outline: none !important;
+}
+
+.page { animation: rise 300ms cubic-bezier(0.16, 1, 0.3, 1); }
+@keyframes rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse-soft {
+  0%,100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+.pulse-soft { animation: pulse-soft 2s ease-in-out infinite; }
