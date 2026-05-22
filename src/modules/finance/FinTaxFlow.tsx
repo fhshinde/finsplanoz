@@ -109,27 +109,25 @@ export default function FinTaxFlow() {
     todaysTarget: fireTargetToday,
   });
   const fireTargetNominal = fireCalc.nominalTarget;
-  // Gross liquid required so that AFTER CGT you net the target (in nominal year-FIRE $)
-  const fireTargetGrossDerived = Math.max(0, (fireTargetNominal - 0.235 * startPortfolioAud) / 0.765);
-  const fireTargetGross = grossFireTargetOverride ?? fireTargetGrossDerived;
-  // When user overrides gross, derive consistent spendable (nominal-after-CGT) and recompute the FIRE year against that gross
-  const displayedFireTargetNominal = grossFireTargetOverride !== null
-    ? Math.max(0, fireTargetGross * 0.765 + 0.235 * startPortfolioAud)
-    : fireTargetNominal;
+  // "Gross FIRE target" = user's spending target (defaults to lifestyle-derived nominal)
+  const grossFireTarget = grossFireTargetOverride ?? fireTargetNominal;
+  // CGT buffer = tax owed on the capital gain from startLiquid → grossFireTarget
+  const fireCgtBuffer = Math.max(0, (grossFireTarget - startPortfolioAud)) * CGT_DISCOUNT * MARGINAL_RATE;
+  // FIRE TARGET REQUIRED = the total gross liquid you need (target + CGT buffer)
+  const fireTargetRequired = grossFireTarget + fireCgtBuffer;
+  // FIRE year = when projected NW reaches the required amount
   const displayedFireYear = (() => {
-    if (grossFireTargetOverride === null) return fireCalc.fireYear;
     let bal = d.nw;
     const r = portReturn / 100;
     for (let y = 0; y < 60; y++) {
-      if (bal >= grossFireTargetOverride) return new Date().getFullYear() + y;
+      if (bal >= fireTargetRequired) return new Date().getFullYear() + y;
       bal = bal * (1 + r);
     }
     return null;
   })();
-  const fireCgtBuffer = Math.max(0, fireTargetGross - displayedFireTargetNominal);
   const totalNetWorth = portfolioAfterCgt + propertyAfterTax + finalInsurance + finalOtherAsset;
-  const fireProgress = (totalNetWorth / fireTargetGross) * 100;
-  const fireReached = totalNetWorth >= fireTargetGross;
+  const fireProgress = (totalNetWorth / fireTargetRequired) * 100;
+  const fireReached = totalNetWorth >= fireTargetRequired;
 
   // Chart data
   const portfolioData = series.rows.map((r, i) => ({
@@ -198,7 +196,7 @@ export default function FinTaxFlow() {
               </div>
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[11px] text-ink-300">Gross FIRE target</span>
-                <NumInput value={Math.round(fireTargetGross)} onChange={(n) => setGrossFireTargetOverride(n)} prefix="$" className="w-32" />
+                <NumInput value={Math.round(grossFireTarget)} onChange={(n) => setGrossFireTargetOverride(n)} prefix="$" className="w-32" />
               </div>
             </div>
 
@@ -278,12 +276,12 @@ export default function FinTaxFlow() {
               </div>
             </div>
 
-            {/* FIRE Target Required — standard formula · futureExpenses × 25 at FIRE year */}
+            {/* FIRE Target Required = Gross FIRE target + CGT buffer */}
             <div className="pt-3 border-t border-white/[0.06]">
               <div className="text-[10px] uppercase tracking-wider text-ink-400 font-semibold">FIRE TARGET REQUIRED</div>
-              <div className="num text-xl text-ink-50 font-semibold mt-0.5 leading-none">{fmtAud(fireTargetGross, true)}</div>
+              <div className="num text-xl text-ink-50 font-semibold mt-0.5 leading-none">{fmtAud(fireTargetRequired, true)}</div>
               <div className="text-[10px] text-ink-500 mt-1 leading-relaxed">
-                <div className="flex justify-between"><span>FIRE TARGET (year {displayedFireYear ?? '—'})</span><span className="num text-ink-300">{fmtAud(displayedFireTargetNominal, true)}</span></div>
+                <div className="flex justify-between"><span>Gross FIRE target (year {displayedFireYear ?? '—'})</span><span className="num text-ink-300">{fmtAud(grossFireTarget, true)}</span></div>
                 <div className="flex justify-between"><span>CGT buffer needed</span><span className="num text-ink-300">{fmtAud(fireCgtBuffer, true)}</span></div>
               </div>
             </div>
