@@ -1,32 +1,49 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState } from 'react';
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
-import { useStore } from '../../core/store';
-import { propertyAnalysis, propertyTimeSeries, portfolioAud, insuranceAud } from '../../core/finance';
-import { useDerived, fireYearInflated } from '../../core/useDerived';
+import { propertyAnalysis, propertyTimeSeries, auTax, type PropertyInputs } from '../../core/finance';
 import { Surface, Slider, NumInput, SaveButton, fmtAud, fmtCompact, cn } from '../../components/ui';
 
-const MARGINAL_RATE = 0.47;      // top AU marginal incl. Medicare for the couple
-const CGT_DISCOUNT = 0.5;        // 50% discount on assets held >12 months
+/* ───────── Couple's profile constants (inlined — Tax tab is the only consumer) ───────── */
+const MARGINAL_RATE = 0.47;            // top AU marginal incl. Medicare
+const CGT_DISCOUNT = 0.5;              // 50% discount on assets held >12 months
 const LIFESTYLE_MONTHLY_AUD = 13_000;  // discretionary AUD/mo, excludes rent
 const RENT_MONTHLY_AUD = 5_000;
+const HER_INCOME = 250_000;
+const HIM_INCOME = 250_000;
+const FIRE_MULTIPLIER = 25;            // years of expenses for FIRE target
+
+/* ───────── Couple's household tax position — computed once at module load ───────── */
+const GROSS_HOUSEHOLD = HER_INCOME + HIM_INCOME;
+const MLS_CTX = { hasPHI: true, mlsHouseholdIncome: GROSS_HOUSEHOLD, isFamily: true };
+const _taxHer = auTax(HER_INCOME, MLS_CTX);
+const _taxHim = auTax(HIM_INCOME, MLS_CTX);
+const NET_HOUSEHOLD_INCOME = _taxHer.net + _taxHim.net;
+const TOTAL_TAX_PAID = _taxHer.total + _taxHim.total;
+const ANNUAL_EXPENSES_TODAY = (RENT_MONTHLY_AUD + LIFESTYLE_MONTHLY_AUD) * 12;
+
+/* ───────── Tiny localStorage-backed state helper ───────── */
+function usePersistedState<T>(key: string, initial: T): [T, (v: T) => void] {
+  const fullKey = 'hos.' + key;
+  const [val, setVal] = useState<T>(() => {
+    try { const raw = localStorage.getItem(fullKey); return raw ? (JSON.parse(raw) as T) : initial; }
+    catch { return initial; }
+  });
+  const set = (v: T) => { setVal(v); try { localStorage.setItem(fullKey, JSON.stringify(v)); } catch {} };
+  return [val, set];
+}
+
+const defaultProperty: PropertyInputs = {
+  price: 300_000, depositPct: 20, rate: 6.2, growth: 3, years: 10, yieldPct: 3.5,
+};
 
 export default function FinTaxFlow() {
-  const {
-    propertyInputs: p, setPropertyInputs: setP,
-    holdings, cashUsd, fx,
-    expectedReturn, setExpectedReturn,
-    fireInflation, setFireInflation,
-    fireMultiplier,
-  } = useStore();
-  const d = useDerived();
+  const [p, setPInput] = usePersistedState<PropertyInputs>('propertyInputs_v2', defaultProperty);
+  const setP = (partial: Partial<PropertyInputs>) => setPInput({ ...p, ...partial });
+  const [portReturn, setExpectedReturn] = usePersistedState<number>('expectedReturn', 10);
+  const [inflation, setFireInflation] = usePersistedState<number>('fireInflation', 5);
 
-  const portReturn = expectedReturn;
-  const inflation = fireInflation;
-  const derivedPortfolioAud = portfolioAud(holdings, cashUsd, fx);
   const [liquidOverride, setLiquidOverride] = useState<number | null>(300_000);
-  // Re-sync override when underlying holdings change (unless user explicitly typed a value)
-  useEffect(() => { if (liquidOverride === null) return; }, [derivedPortfolioAud]);
-  const startPortfolioAud = liquidOverride ?? derivedPortfolioAud;
+  const startPortfolioAud = liquidOverride ?? 0;
 
   // Other asset (e.g. super, vested equity, second property) — user-scenario only
   const [otherAssetValue, setOtherAssetValue] = useState(100_000);
@@ -35,21 +52,24 @@ export default function FinTaxFlow() {
   const [insuranceOverride, setInsuranceOverride] = useState<number | null>(300_000);
   const [grossFireTargetOverride, setGrossFireTargetOverride] = useState<number | null>(2_000_000);
 
+  const insuranceStartAud = insuranceOverride ?? 0;
+  const startNw = startPortfolioAud + insuranceStartAud;
+
   // Year-by-year series
   const series = useMemo(() => {
     return propertyTimeSeries({
       inputs: p,
       startPortfolioAud,
-      insuranceAud: insuranceAud(fx),
-      netHouseholdIncome: d.netHouseholdIncome,
-      totalTaxPaid: d.totalTaxPaid,
+      insuranceAud: insuranceStartAud,
+      netHouseholdIncome: NET_HOUSEHOLD_INCOME,
+      totalTaxPaid: TOTAL_TAX_PAID,
       annualLifestyle: LIFESTYLE_MONTHLY_AUD * 12,
       portfolioReturn: portReturn / 100,
       rentMonthly: RENT_MONTHLY_AUD,
       active: true,    // always model as if property purchased — this is a scenario tab
       inflation: inflation / 100,
     });
-  }, [p, holdings, cashUsd, fx, startPortfolioAud, portReturn, inflation, d.totalTaxPaid, d.netHouseholdIncome]);
+  }, [p, startPortfolioAud, insuranceStartAud, portReturn, inflation]);
 
   // Property purchase costs reduce starting liquid (deposit + stamp duty + legal)
   const a = useMemo(() => propertyAnalysis(p), [p]);
@@ -82,9 +102,7 @@ export default function FinTaxFlow() {
   const finalLoanBalance = Math.max(0, finalPropertyValue - finalProperty);
 
 
-  // Insurance value — compounds at the Other Asset growth rate. Override defaults from SGD 600K → AUD.
-  const derivedInsuranceAud = insuranceAud(fx);
-  const insuranceStartAud = insuranceOverride ?? derivedInsuranceAud;
+  // Insurance value — compounds at the Other Asset growth rate.
   const insuranceAt = (yearN: number) => insuranceStartAud * Math.pow(1 + otherAssetGrowth / 100, yearN);
   const finalInsurance = insuranceAt(p.years);
 
@@ -100,16 +118,19 @@ export default function FinTaxFlow() {
   const finalOtherAsset = otherStartingAtN + cashFromSavings;
 
   // FIRE TARGET — standard FIRE formula: future expenses × multiplier (inflated to year you reach FIRE)
-  // Iteratively find the FIRE year where pure-compounded NW catches the inflating target
-  const fireTargetToday = d.annualExpensesToday * fireMultiplier;
-  const fireCalc = fireYearInflated({
-    startNw: d.nw,
-    annualSavings: 0,
-    nominalReturn: portReturn / 100,
-    inflation: inflation / 100,
-    todaysTarget: fireTargetToday,
-  });
-  const fireTargetNominal = fireCalc.nominalTarget;
+  // Iteratively find the FIRE year where pure-compounded NW catches the inflating target.
+  const fireTargetToday = ANNUAL_EXPENSES_TODAY * FIRE_MULTIPLIER;
+  const fireTargetNominal = (() => {
+    let bal = startNw;
+    const r = portReturn / 100;
+    const i = inflation / 100;
+    for (let y = 0; y < 60; y++) {
+      const target = fireTargetToday * Math.pow(1 + i, y);
+      if (bal >= target) return target;
+      bal = bal * (1 + r);
+    }
+    return fireTargetToday * Math.pow(1 + i, 60);
+  })();
   // "Gross FIRE target" = user's spending target (defaults to lifestyle-derived nominal)
   const grossFireTarget = grossFireTargetOverride ?? fireTargetNominal;
   // CGT buffer = tax owed on the capital gain from startLiquid → grossFireTarget
@@ -118,7 +139,7 @@ export default function FinTaxFlow() {
   const fireTargetRequired = grossFireTarget + fireCgtBuffer;
   // FIRE year = when projected NW reaches the required amount
   const displayedFireYear = (() => {
-    let bal = d.nw;
+    let bal = startNw;
     const r = portReturn / 100;
     for (let y = 0; y < 60; y++) {
       if (bal >= fireTargetRequired) return new Date().getFullYear() + y;

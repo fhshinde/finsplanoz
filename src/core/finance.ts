@@ -1,29 +1,12 @@
-import type { Holding, Fx, PropertyInputs } from './types';
-
-// Couple-specific constants (formerly COUPLE.*). Inlined since only this tab uses them.
-const INSURANCE_SGD = 600_000;
-const RENT_MONTHLY_AUD = 5_000;
-
-/* ───────── Currency helpers ─────────
-   FX (Google Finance convention):
-     aud_usd = USD per AUD  (AUD-USD quote)
-     sgd_aud = AUD per SGD  (SGD-AUD quote) */
-export const usdToAud = (usd: number, fx: Fx) => usd / fx.aud_usd;
-export const sgdToAud = (sgd: number, fx: Fx) => sgd * fx.sgd_aud;
-
-/* ───────── Portfolio ───────── */
-export function portfolioUsd(holdings: Holding[], cashUsd: number) {
-  return holdings.reduce((s, h) => s + h.qty * h.price, 0) + cashUsd;
-}
-export function portfolioAud(holdings: Holding[], cashUsd: number, fx: Fx) {
-  return usdToAud(portfolioUsd(holdings, cashUsd), fx);
-}
-export function insuranceAud(fx: Fx) {
-  return sgdToAud(INSURANCE_SGD, fx);
-}
-export function netWorthAud(holdings: Holding[], cashUsd: number, fx: Fx) {
-  return portfolioAud(holdings, cashUsd, fx) + insuranceAud(fx);
-}
+/* ───────── Property scenario inputs ───────── */
+export type PropertyInputs = {
+  price: number;
+  depositPct: number;
+  rate: number;
+  growth: number;
+  years: number;
+  yieldPct: number;
+};
 
 /* ───────── NSW progressive stamp duty (PPR, owner-occupied) — 2025/26 bands ───────── */
 const NSW_DUTY_BANDS: Array<{ upto: number; base: number; marginal: number; over: number }> = [
@@ -75,7 +58,7 @@ export function propertyTimeSeries(opts: {
   const portReturn = opts.portfolioReturn ?? 0.07;
   const inflation = opts.inflation ?? 0.03;
   const active = opts.active ?? true;
-  const rentAnnual = (opts.rentMonthly ?? RENT_MONTHLY_AUD) * 12;
+  const rentAnnual = (opts.rentMonthly ?? 5_000) * 12;
   const a = propertyAnalysis(p);
 
   const m = mortgageMonthly(a.loan, p.rate, 30);
