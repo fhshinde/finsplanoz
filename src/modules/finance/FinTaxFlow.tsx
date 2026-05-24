@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { propertyAnalysis, propertyTimeSeries, type PropertyInputs } from '../../core/finance';
 import { Surface, Slider, NumInput, SaveButton, fmtAud, fmtCompact, cn } from '../../components/ui';
 
@@ -115,29 +115,32 @@ export default function FinTaxFlow() {
   const fireProgress = (totalNetWorth / fireTargetRequired) * 100;
   const fireReached = totalNetWorth >= fireTargetRequired;
 
-  // Chart data
-  const portfolioData = series.rows.map((r, i) => ({
-    year: r.year,
-    value: Math.round(purePortfolio(i)),
-  }));
-
-  // Other-assets year-by-year — 3 separate series
+  // Year-by-year component helpers (shared by the combined chart)
   const otherLumpAt = (yearN: number) => otherAssetValue * Math.pow(1 + otherGrowthRate, yearN);
   const cashAnnuityAt = (yearN: number) => otherGrowthRate === 0
     ? annualSavingsContrib * yearN
     : annualSavingsContrib * ((Math.pow(1 + otherGrowthRate, yearN) - 1) / otherGrowthRate);
-  const otherAssetsData = series.rows.map((r, i) => ({
-    year: r.year,
-    insurance: Math.round(insuranceAt(i)),
-    other: Math.round(otherLumpAt(i)),
-    cash: Math.round(cashAnnuityAt(i)),
-  }));
   const finalOtherTotal = finalInsurance + finalOtherAsset; // insurance + lump + cash
-  const propertyData = series.rows.map((r, i) => ({
-    year: r.year,
-    value: Math.round(propertyValueAt(i)),   // market value (main line)
-    equity: r.property,                       // equity (secondary line)
-  }));
+
+  // Combined: every NW component on one timeline. Stacked areas sum to net worth;
+  // property market value rides as a reference line above the equity slice.
+  const combinedData = series.rows.map((r, i) => {
+    const liquid = Math.round(purePortfolio(i));
+    const equity = r.property;
+    const insurance = Math.round(insuranceAt(i));
+    const other = Math.round(otherLumpAt(i));
+    const cash = Math.round(cashAnnuityAt(i));
+    return {
+      year: r.year,
+      liquid,
+      equity,
+      insurance,
+      other,
+      cash,
+      propertyValue: Math.round(propertyValueAt(i)),
+      total: liquid + equity + insurance + other + cash,
+    };
+  });
 
   return (
     <div className="space-y-3">
@@ -191,25 +194,12 @@ export default function FinTaxFlow() {
           </div>
         </Surface>
 
-        {/* MIDDLE — 3 charts: Liquid + Other on top, Property full-width on bottom */}
-        <div className="lg:col-span-6 grid grid-cols-2 grid-rows-2 gap-2">
-          <LiquidAssetChartCard
-            data={portfolioData}
+        {/* MIDDLE — single combined trend chart */}
+        <div className="lg:col-span-6">
+          <CombinedTrendsChartCard
+            data={combinedData}
             yearN={p.years}
-            growthRate={portReturn}
-            finalLiquid={finalPortfolio}
-          />
-          <OtherAssetsChartCard
-            data={otherAssetsData}
-            yearN={p.years}
-            growthRate={otherAssetGrowth}
-            finalTotal={finalOtherTotal}
-          />
-          <PropertyChartCard
-            data={propertyData}
-            yearN={p.years}
-            growthRate={p.growth}
-            className="col-span-2"
+            finalTotal={totalNetWorth}
           />
         </div>
 
@@ -287,107 +277,58 @@ export default function FinTaxFlow() {
   );
 }
 
-/* ───────── Liquid Asset chart ───────── */
-function LiquidAssetChartCard({ data, yearN, growthRate, finalLiquid }: { data: any[]; yearN: number; growthRate: number; finalLiquid: number }) {
-  return (
-    <Surface className="p-3 flex flex-col min-h-0">
-      <div className="flex items-baseline justify-between mb-2">
-        <div>
-          <h3 className="text-sm font-semibold text-ink-50">Liquid Asset</h3>
-          <div className="text-[10px] text-ink-400">{growthRate}% p.a. · pure compounding</div>
-        </div>
-        <div className="text-right">
-          <div className="text-[10px] uppercase tracking-wider text-ink-400 font-semibold">Y{yearN}</div>
-          <div className="num text-sm font-semibold text-brand">{fmtAud(finalLiquid, true)}</div>
-        </div>
-      </div>
-      <div className="flex-1 min-h-[80px]">
-        <ResponsiveContainer>
-          <AreaChart data={data} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
-            <defs>
-              <linearGradient id="g-liquid-val" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#c4a875" stopOpacity={0.4} />
-                <stop offset="100%" stopColor="#c4a875" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid stroke="rgba(255,255,255,0.04)" vertical={false} />
-            <XAxis dataKey="year" stroke="#6b7691" fontSize={9} tickLine={false} axisLine={false} />
-            <YAxis stroke="#6b7691" fontSize={9} tickFormatter={(v) => '$' + fmtCompact(v)} tickLine={false} axisLine={false} />
-            <Tooltip contentStyle={{ background: '#1c2230', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, fontSize: 11 }} formatter={(v: any) => fmtAud(Number(v), true)} />
-            <Area type="monotone" dataKey="value" name="Liquid asset" stroke="#c4a875" strokeWidth={2} fill="url(#g-liquid-val)" />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
-    </Surface>
-  );
-}
+/* ───────── Combined trends — every NW component as its own line ───────── */
+const LINE_SERIES: Array<{ key: string; name: string; color: string; dashed?: boolean; width?: number }> = [
+  { key: 'liquid',        name: 'Liquid asset',          color: '#e8c890' },
+  { key: 'equity',        name: 'Property equity',       color: '#c4b5fd' },
+  { key: 'propertyValue', name: 'Property market value', color: '#a78bfa', dashed: true },
+  { key: 'insurance',     name: 'Insurance',             color: '#c8cdd9' },
+  { key: 'other',         name: 'Other',                 color: '#9aa3b8' },
+  { key: 'cash',          name: 'Cash savings',          color: '#6b7691' },
+];
 
-/* ───────── Other Assets chart — 3 lines: insurance, other lump, cash savings ───────── */
-function OtherAssetsChartCard({ data, yearN, growthRate, finalTotal }: { data: any[]; yearN: number; growthRate: number; finalTotal: number }) {
+function CombinedTrendsChartCard({ data, yearN, finalTotal }: { data: any[]; yearN: number; finalTotal: number }) {
   return (
-    <Surface className="p-3 flex flex-col min-h-0">
+    <Surface className="p-3 flex flex-col min-h-0 h-full">
       <div className="flex items-baseline justify-between mb-2">
         <div>
-          <h3 className="text-sm font-semibold text-ink-50">Other Assets</h3>
-          <div className="text-[10px] text-ink-400">{growthRate}% p.a. · insurance + other + monthly savings</div>
+          <h3 className="text-sm font-semibold text-ink-50">Net Worth Trend</h3>
+          <div className="text-[10px] text-ink-400">Each component as its own line · header shows total NW</div>
         </div>
         <div className="text-right">
           <div className="text-[10px] uppercase tracking-wider text-ink-400 font-semibold">Y{yearN}</div>
-          <div className="num text-sm text-ink-50 font-semibold">{fmtAud(finalTotal, true)}</div>
+          <div className="num text-sm font-semibold text-brand">{fmtAud(finalTotal, true)}</div>
         </div>
       </div>
-      <div className="flex-1 min-h-[80px]">
+      <div className="flex-1 min-h-[320px]">
         <ResponsiveContainer>
-          <AreaChart data={data} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
+          <LineChart data={data} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
             <CartesianGrid stroke="rgba(255,255,255,0.04)" vertical={false} />
             <XAxis dataKey="year" stroke="#6b7691" fontSize={9} tickLine={false} axisLine={false} />
             <YAxis stroke="#6b7691" fontSize={9} tickFormatter={(v) => '$' + fmtCompact(v)} tickLine={false} axisLine={false} />
             <Tooltip
               contentStyle={{ background: '#1c2230', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, fontSize: 11 }}
               formatter={(v: any, n: any) => [fmtAud(Number(v), true), n]}
-              itemSorter={(item: any) => ({ insurance: 0, other: 1, cash: 2 } as Record<string, number>)[item.dataKey] ?? 99}
+              itemSorter={(item: any) => {
+                const order: Record<string, number> = { liquid: 0, equity: 1, propertyValue: 2, insurance: 3, other: 4, cash: 5 };
+                return order[item.dataKey] ?? 99;
+              }}
             />
-            <Area type="monotone" dataKey="cash"      name="Cash"      stroke="#6b7691" strokeWidth={1.5} fill="none" strokeDasharray="3 3" />
-            <Area type="monotone" dataKey="other"     name="Other"     stroke="#9aa3b8" strokeWidth={1.5} fill="none" strokeDasharray="5 3" />
-            <Area type="monotone" dataKey="insurance" name="Insurance" stroke="#c8cdd9" strokeWidth={1.5} fill="none" />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
-    </Surface>
-  );
-}
-
-/* ───────── Property chart — market value + equity line ───────── */
-function PropertyChartCard({ data, yearN, growthRate, className }: { data: any[]; yearN: number; growthRate: number; className?: string }) {
-  const finalRow = data[data.length - 1];
-  return (
-    <Surface className={cn("p-3 flex flex-col min-h-0", className)}>
-      <div className="flex items-baseline justify-between mb-2">
-        <div>
-          <h3 className="text-sm font-semibold text-ink-50">Property Growth</h3>
-          <div className="text-[10px] text-ink-400">{growthRate}% p.a. · equity = value − remaining loan</div>
-        </div>
-        <div className="text-right">
-          <div className="text-[10px] uppercase tracking-wider text-ink-400 font-semibold">Y{yearN}</div>
-          <div className="num text-sm text-dusk font-semibold">{fmtAud(finalRow?.value ?? 0, true)}</div>
-        </div>
-      </div>
-      <div className="flex-1 min-h-[80px]">
-        <ResponsiveContainer>
-          <AreaChart data={data} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
-            <defs>
-              <linearGradient id="g-prop-val" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#a78bfa" stopOpacity={0.4} />
-                <stop offset="100%" stopColor="#a78bfa" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid stroke="rgba(255,255,255,0.04)" vertical={false} />
-            <XAxis dataKey="year" stroke="#6b7691" fontSize={9} tickLine={false} axisLine={false} />
-            <YAxis stroke="#6b7691" fontSize={9} tickFormatter={(v) => '$' + fmtCompact(v)} tickLine={false} axisLine={false} />
-            <Tooltip contentStyle={{ background: '#1c2230', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, fontSize: 11 }} formatter={(v: any, n: any) => [fmtAud(Number(v), true), n]} />
-            <Area type="monotone" dataKey="value" name="Market value" stroke="#a78bfa" strokeWidth={2} fill="url(#g-prop-val)" />
-            <Area type="monotone" dataKey="equity" name="Equity" stroke="#c4b5fd" strokeWidth={1.5} fill="none" strokeDasharray="4 3" />
-          </AreaChart>
+            <Legend wrapperStyle={{ fontSize: 10, paddingTop: 4 }} iconSize={8} />
+            {LINE_SERIES.map(s => (
+              <Line
+                key={s.key}
+                type="monotone"
+                dataKey={s.key}
+                name={s.name}
+                stroke={s.color}
+                strokeWidth={s.width ?? 1.5}
+                strokeDasharray={s.dashed ? '4 3' : undefined}
+                dot={false}
+                activeDot={{ r: 3 }}
+              />
+            ))}
+          </LineChart>
         </ResponsiveContainer>
       </div>
     </Surface>
