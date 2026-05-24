@@ -3,9 +3,9 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 import { propertyAnalysis, propertyTimeSeries, type PropertyInputs } from '../../core/finance';
 import { Surface, Slider, NumInput, SaveButton, fmtAud, fmtCompact, cn } from '../../components/ui';
 
-/* ───────── Couple's profile constants (inlined — Tax tab is the only consumer) ───────── */
-const MARGINAL_RATE = 0.47;            // top AU marginal incl. Medicare
+/* ───────── Tax constants ───────── */
 const CGT_DISCOUNT = 0.5;              // 50% discount on assets held >12 months
+const DEFAULT_MARGINAL_RATE_PCT = 47;  // top AU marginal incl. Medicare (default)
 
 /* ───────── Tiny localStorage-backed state helper ───────── */
 function usePersistedState<T>(key: string, initial: T): [T, (v: T) => void] {
@@ -28,6 +28,8 @@ export default function FinTaxFlow() {
   const setP = (partial: Partial<PropertyInputs>) => setPInput({ ...p, ...partial });
   const [portReturn, setExpectedReturn] = usePersistedState<number>('expectedReturn_v2', 0);
   const [inflation, setFireInflation] = usePersistedState<number>('fireInflation_v2', 0);
+  const [marginalRatePct, setMarginalRatePct] = usePersistedState<number>('marginalRatePct', DEFAULT_MARGINAL_RATE_PCT);
+  const MARGINAL_RATE = marginalRatePct / 100;
 
   const [liquidOverride, setLiquidOverride] = useState<number | null>(0);
   const startPortfolioAud = liquidOverride ?? 0;
@@ -193,6 +195,11 @@ export default function FinTaxFlow() {
               <Slider label="Other Asset Growth" value={otherAssetGrowth} min={0} max={20} step={1} onChange={setOtherAssetGrowth} fmt={v => v.toFixed(0) + '%'} />
               <Slider label="Inflation" value={inflation} min={0} max={10} step={1} onChange={setFireInflation} fmt={v => v.toFixed(0) + '%'} />
             </div>
+
+            <div className="pt-2 border-t border-white/[0.06] space-y-1">
+              <div className="text-[10px] uppercase tracking-[0.16em] text-ink-400 font-semibold">Tax assumptions</div>
+              <Slider label="Marginal tax rate" value={marginalRatePct} min={0} max={50} step={1} onChange={setMarginalRatePct} fmt={v => v.toFixed(0) + '%'} />
+            </div>
           </div>
         </Surface>
 
@@ -220,7 +227,7 @@ export default function FinTaxFlow() {
               <div className="text-[10px] text-ink-500 mt-1 leading-relaxed">
                 <div className="flex justify-between"><span>Starting basis: {fmtAud(startPortfolioAud, true)} − {fmtAud(a.upfront, true)}</span><span className="num text-ink-300">{fmtAud(effectiveStartLiquid, true)}</span></div>
                 <div className="flex justify-between"><span>Gross at year {p.years}</span><span className="num text-ink-300">{fmtAud(finalPortfolio, true)}</span></div>
-                <div className="flex justify-between"><span>CGT @ 47% × 50%</span><span className="num text-ink-300">{fmtAud(portfolioCgt, true)}</span></div>
+                <div className="flex justify-between"><span>CGT @ {marginalRatePct}% × 50%</span><span className="num text-ink-300">{fmtAud(portfolioCgt, true)}</span></div>
               </div>
             </div>
 
