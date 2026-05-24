@@ -19,25 +19,25 @@ function usePersistedState<T>(key: string, initial: T): [T, (v: T) => void] {
 }
 
 const defaultProperty: PropertyInputs = {
-  price: 0, depositPct: 20, rate: 6.2, growth: 3, years: 10, yieldPct: 3.5,
+  price: 0, depositPct: 0, rate: 0, growth: 0, years: 0, yieldPct: 0,
 };
 
 export default function FinTaxFlow() {
-  // v3 key — forces fresh defaults for visitors who saw the older property defaults
-  const [p, setPInput] = usePersistedState<PropertyInputs>('propertyInputs_v3', defaultProperty);
+  // v4 key — defaults reset to 0 across the board; bump invalidates older persisted state
+  const [p, setPInput] = usePersistedState<PropertyInputs>('propertyInputs_v4', defaultProperty);
   const setP = (partial: Partial<PropertyInputs>) => setPInput({ ...p, ...partial });
-  const [portReturn, setExpectedReturn] = usePersistedState<number>('expectedReturn', 10);
-  const [inflation, setFireInflation] = usePersistedState<number>('fireInflation', 5);
+  const [portReturn, setExpectedReturn] = usePersistedState<number>('expectedReturn_v2', 0);
+  const [inflation, setFireInflation] = usePersistedState<number>('fireInflation_v2', 0);
 
-  const [liquidOverride, setLiquidOverride] = useState<number | null>(300_000);
+  const [liquidOverride, setLiquidOverride] = useState<number | null>(0);
   const startPortfolioAud = liquidOverride ?? 0;
 
   // Other asset (e.g. super, vested equity, second property) — user-scenario only
   const [otherAssetValue, setOtherAssetValue] = useState(0);
-  const [otherAssetGrowth, setOtherAssetGrowth] = useState(5);
-  const [monthlySavings, setMonthlySavings] = useState(3_000);
-  const [insuranceOverride, setInsuranceOverride] = useState<number | null>(300_000);
-  const [grossFireTarget, setGrossFireTarget] = useState<number>(2_000_000);
+  const [otherAssetGrowth, setOtherAssetGrowth] = useState(0);
+  const [monthlySavings, setMonthlySavings] = useState(0);
+  const [insuranceOverride, setInsuranceOverride] = useState<number | null>(0);
+  const [grossFireTarget, setGrossFireTarget] = useState<number>(0);
 
   const insuranceStartAud = insuranceOverride ?? 0;
   const startNw = startPortfolioAud + insuranceStartAud;
@@ -182,14 +182,14 @@ export default function FinTaxFlow() {
               </div>
             </div>
 
-            <Slider label="Hold period (years)" value={p.years} min={5} max={30} step={1} onChange={(n) => setP({ years: n })} fmt={v => v + ' yrs'} />
+            <Slider label="Hold period (years)" value={p.years} min={0} max={30} step={1} onChange={(n) => setP({ years: n })} fmt={v => v + ' yrs'} />
 
             <div className="pt-2 border-t border-white/[0.06] space-y-1">
               <div className="text-[10px] uppercase tracking-[0.16em] text-ink-400 font-semibold">Growth assumptions</div>
-              <Slider label="Investment Return" value={portReturn} min={7} max={25} step={1} onChange={setExpectedReturn} fmt={v => v.toFixed(0) + '%'} />
-              <Slider label="Property Growth" value={p.growth} min={3} max={20} step={1} onChange={(n) => setP({ growth: n })} fmt={v => v.toFixed(0) + '%'} />
+              <Slider label="Investment Return" value={portReturn} min={0} max={25} step={1} onChange={setExpectedReturn} fmt={v => v.toFixed(0) + '%'} />
+              <Slider label="Property Growth" value={p.growth} min={0} max={20} step={1} onChange={(n) => setP({ growth: n })} fmt={v => v.toFixed(0) + '%'} />
               <Slider label="Other Asset Growth" value={otherAssetGrowth} min={0} max={20} step={1} onChange={setOtherAssetGrowth} fmt={v => v.toFixed(0) + '%'} />
-              <Slider label="Inflation" value={inflation} min={3} max={10} step={1} onChange={setFireInflation} fmt={v => v.toFixed(0) + '%'} />
+              <Slider label="Inflation" value={inflation} min={0} max={10} step={1} onChange={setFireInflation} fmt={v => v.toFixed(0) + '%'} />
             </div>
           </div>
         </Surface>
