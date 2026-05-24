@@ -161,7 +161,7 @@ export default function FinTaxFlow() {
                 <NumInput value={Math.round(startPortfolioAud)} onChange={(n) => setLiquidOverride(n)} prefix="$" className="w-32" />
               </div>
               <div className="flex items-center justify-between gap-2">
-                <span className="text-[11px] text-ink-300">Property price</span>
+                <span className="text-[11px] text-ink-300">Property price to purchase</span>
                 <NumInput value={p.price} onChange={(n) => setP({ price: n })} prefix="$" className="w-32" />
               </div>
               <div className="flex items-center justify-between gap-2">
