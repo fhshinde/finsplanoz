@@ -19,12 +19,12 @@ function usePersistedState<T>(key: string, initial: T): [T, (v: T) => void] {
 }
 
 const defaultProperty: PropertyInputs = {
-  price: 0, depositPct: 0, rate: 0, growth: 5, years: 10, yieldPct: 0,
+  price: 0, depositPct: 0, rate: 6, growth: 5, years: 10, yieldPct: 0,
 };
 
 export default function FinTaxFlow() {
-  // v5 key — defaults reset to the documented baseline; bump invalidates older persisted state
-  const [p, setPInput] = usePersistedState<PropertyInputs>('propertyInputs_v5', defaultProperty);
+  // v6 key — mortgage rate default lifted to 6%; bump invalidates older persisted state
+  const [p, setPInput] = usePersistedState<PropertyInputs>('propertyInputs_v6', defaultProperty);
   const setP = (partial: Partial<PropertyInputs>) => setPInput({ ...p, ...partial });
   const [portReturn, setExpectedReturn] = usePersistedState<number>('expectedReturn_v3', 15);
   const [inflation, setFireInflation] = usePersistedState<number>('fireInflation_v3', 5);
@@ -147,7 +147,7 @@ export default function FinTaxFlow() {
   return (
     <div className="space-y-3">
       <div className="bg-white/[0.02] border border-white/[0.06] rounded-lg px-4 py-2">
-        <div className="text-[11px] text-ink-300">Year-by-year tax + asset trajectory. All inputs persist across the app. <span className="text-brand font-semibold">AU CGT</span> assumes 12+ month holding (50% discount) at {(MARGINAL_RATE*100).toFixed(0)}% marginal. Property treated as PPOR (CGT-exempt).</div>
+        <div className="text-[11px] text-ink-300">Year-by-year tax + asset trajectory. All inputs persist across the app. <span className="text-brand font-semibold">AU CGT</span> assumes 12+ month holding (50% discount) at {(MARGINAL_RATE*100).toFixed(0)}% marginal. Property treated as PPOR (CGT-exempt). Mortgage rate {p.rate.toFixed(0)}% over 30 years.</div>
       </div>
 
       <div className="grid lg:grid-cols-12 gap-3">
