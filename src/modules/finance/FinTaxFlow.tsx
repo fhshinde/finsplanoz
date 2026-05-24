@@ -280,7 +280,6 @@ export default function FinTaxFlow() {
         </Surface>
       </div>
 
-      <p className="text-[10px] text-ink-500 italic mt-1">Projection only · AU CGT assumes top marginal × 50% discount (12mo+) · PPOR exempt · doesn't model income growth.</p>
     </div>
   );
 }
