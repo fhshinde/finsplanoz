@@ -144,15 +144,17 @@ export default function FinTaxFlow() {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between bg-white/[0.02] border border-white/[0.06] rounded-lg px-4 py-2">
+      <div className="bg-white/[0.02] border border-white/[0.06] rounded-lg px-4 py-2">
         <div className="text-[11px] text-ink-300">Year-by-year tax + asset trajectory. All inputs persist across the app. <span className="text-brand font-semibold">AU CGT</span> assumes 12+ month holding (50% discount) at {(MARGINAL_RATE*100).toFixed(0)}% marginal. Property treated as PPOR (CGT-exempt).</div>
-        <SaveButton />
       </div>
 
       <div className="grid lg:grid-cols-12 gap-3">
         {/* LEFT — INPUTS, distribute to fill height */}
         <Surface className="lg:col-span-3 p-3 flex flex-col">
-          <h2 className="text-sm font-semibold text-ink-50 mb-2">Scenario</h2>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-sm font-semibold text-ink-50">Scenario</h2>
+            <SaveButton />
+          </div>
 
           <div className="flex-1 flex flex-col justify-between gap-1.5">
             <div className="space-y-1.5">
